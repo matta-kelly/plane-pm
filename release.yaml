@@ -1,0 +1,125 @@
+# ==============================================================================
+# Plane Helm Release
+# ==============================================================================
+# Project management tool - Jira/Linear alternative
+# Uses ENTITY variables - substituted by Flux per-entity
+# ==============================================================================
+
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${ENTITY_NAME}-plane
+spec:
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: plane-ce
+      version: "1.x"
+      sourceRef:
+        kind: HelmRepository
+        name: makeplane
+        namespace: flux-system
+
+  # Wait for database to be ready
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: cnpg-system
+
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+
+  # Inject sensitive values from entity-specific secret
+  valuesFrom:
+    - kind: Secret
+      name: ${ENTITY_NAME}-plane-helm-values
+      valuesKey: env.secret_key
+      targetPath: env.secret_key
+    - kind: Secret
+      name: ${ENTITY_NAME}-plane-helm-values
+      valuesKey: live_server_secret_key
+      targetPath: live_server_secret_key
+    - kind: Secret
+      name: ${ENTITY_NAME}-plane-helm-values
+      valuesKey: env.pgdb_remote_url
+      targetPath: env.pgdb_remote_url
+
+  values:
+    planeVersion: "v0.23-dev"
+
+    # -------------------------------------------------------------------------
+    # Ingress - Traefik with cert-manager
+    # -------------------------------------------------------------------------
+    ingress:
+      enabled: true
+      appHost: "plane.${ENTITY_DOMAIN}"
+      ingressClass: "traefik"
+
+    ssl:
+      createIssuer: false  # We use our own ClusterIssuer
+      generateCerts: false
+
+    # -------------------------------------------------------------------------
+    # External PostgreSQL (CNPG)
+    # -------------------------------------------------------------------------
+    postgres:
+      local_setup: false
+
+    # -------------------------------------------------------------------------
+    # External S3 (SeaweedFS)
+    # -------------------------------------------------------------------------
+    minio:
+      local_setup: false
+
+    # -------------------------------------------------------------------------
+    # Environment variables (secrets injected via valuesFrom)
+    # -------------------------------------------------------------------------
+    env:
+      # S3 storage via SeaweedFS
+      aws_access_key: "admin"
+      aws_secret_access_key: "password"
+      aws_region: "us-east-1"
+      aws_s3_endpoint_url: "http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333"
+      docstore_bucket: "${ENTITY_NAME}-plane-uploads"
+
+    # -------------------------------------------------------------------------
+    # Internal Redis & RabbitMQ (simpler for now)
+    # -------------------------------------------------------------------------
+    redis:
+      local_setup: true
+      storageClass: "seaweedfs-storage"
+
+    rabbitmq:
+      local_setup: true
+      storageClass: "seaweedfs-storage"
+
+    # -------------------------------------------------------------------------
+    # Node placement - bulk storage nodes
+    # -------------------------------------------------------------------------
+    web:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"
+
+    api:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"
+
+    worker:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"
+
+    admin:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"
+
+    space:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"
+
+    live:
+      nodeSelector:
+        storage.h-kube.io/bulk: "true"

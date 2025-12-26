@@ -1,0 +1,14 @@
+# ==============================================================================
+# Plane-PM Kustomization
+# ==============================================================================
+# Application template for Plane project management
+# Uses ENTITY variables - secrets live in h-kube per-entity
+# ==============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - repository.yaml
+  - database.yaml
+  - release.yaml
+# NOTE: Secrets are entity-specific and live in h-kube/cluster/namespaces/<entity>/

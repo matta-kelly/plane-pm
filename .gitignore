@@ -1,0 +1,14 @@
+# Decrypted secrets (never commit)
+*.dec.yaml
+*.decrypted.yaml
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

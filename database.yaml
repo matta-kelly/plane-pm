@@ -1,0 +1,57 @@
+# ==============================================================================
+# Plane PostgreSQL Database (CloudNativePG)
+# ==============================================================================
+# Uses ENTITY variables - substituted by Flux per-entity
+# ==============================================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ${ENTITY_NAME}-plane-db
+spec:
+  instances: 1
+
+  # PostgreSQL version
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+
+  # Primary storage - on local disk for performance
+  storage:
+    size: 10Gi
+    storageClass: local-path
+
+  # Database bootstrap
+  bootstrap:
+    initdb:
+      database: plane
+      owner: plane
+      secret:
+        name: ${ENTITY_NAME}-plane-db-password
+
+  # Backup to SeaweedFS S3
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://cnpg-backups/${ENTITY_NAME}-plane
+      endpointURL: http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333
+      s3Credentials:
+        accessKeyId:
+          name: ${ENTITY_NAME}-plane-db-backup-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: ${ENTITY_NAME}-plane-db-backup-creds
+          key: SECRET_ACCESS_KEY
+    retentionPolicy: "7d"
+
+---
+# ==============================================================================
+# Scheduled Backup
+# ==============================================================================
+
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: ${ENTITY_NAME}-plane-db-backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  backupOwnerReference: self
+  cluster:
+    name: ${ENTITY_NAME}-plane-db
