@@ -62,6 +62,7 @@ spec:
     ssl:
       createIssuer: false  # We use our own ClusterIssuer
       generateCerts: false
+      useHttps: true  # WEB_URL will use https://
 
     # -------------------------------------------------------------------------
     # External PostgreSQL (CNPG)
